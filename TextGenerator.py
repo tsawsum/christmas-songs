@@ -24,7 +24,6 @@ def load_data(data_folder, words, valid_punctuation, input_length):
     unique_values = set()
     for values in data:
         unique_values.update(values)
-    unique_values.remove('')
     sorted_vals = sorted(unique_values)
     encodings = np.identity(len(sorted_vals))
     val_to_num = {sorted_vals[i]: encodings[i] for i in range(len(unique_values))}
@@ -42,6 +41,11 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
                batch_size, validation_split, valid_punctuation, words=False):
     # Get data
     input_data, output_data, mapping = load_data(data_folder, words, valid_punctuation, input_length)
+    # Create model file
+    i = 1
+    while not os.path.isfile(os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')):
+        i += 1
+    model_file = os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')
     mapping_length = len(random.choice(mapping.keys()))
     # Create network
     model = keras.models.Sequential()
@@ -49,3 +53,8 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     model.add(keras.layers.LSTM(lstm_size))
     model.add(keras.layers.Dense(mapping_length, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
+    # Train the network
+    model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
+    _, accuracy = model.evaluate(input_data, output_data)
+    print('Accuracy: %.2f%%' % (accuracy * 100))
+    model.save(model_file)
