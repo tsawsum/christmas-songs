@@ -15,6 +15,7 @@ def load_data(data_folder, words, valid_punctuation, input_length):
     # Split into characters/words
     data = list()
     for text in all_text:
+        data.append(list())
         if words:
             for line in text.split('\n'):
                 data[-1] += line.split(' ') + ['\n']
@@ -27,42 +28,41 @@ def load_data(data_folder, words, valid_punctuation, input_length):
     sorted_vals = sorted(unique_values)
     encodings = np.identity(len(sorted_vals))
     val_to_num = {sorted_vals[i]: encodings[i] for i in range(len(unique_values))}
-    num_to_val = {v: k for k, v in val_to_num.items()}
     # Format into data set
     input_data, output_data = list(), list()
-    shape = len(sorted_vals) * input_length
     for values in data:
         for i in range(input_length, len(values)):
-            input_data.append(np.reshape([val_to_num[val] for val in values[i-input_length:i]], shape))
+            input_data.append(np.array([val_to_num[val] for val in values[i-input_length:i]]))
             output_data.append(val_to_num[values[i]])
-    return input_data, output_data, num_to_val
-    
+    return np.array(input_data), np.array(output_data), sorted_vals
+
+
 def train_data(data_folder, save_file, input_length, lstm_size, epochs,
                batch_size, validation_split, valid_punctuation, words=False):
     # Get data
     input_data, output_data, mapping = load_data(data_folder, words, valid_punctuation, input_length)
     # Create model file
     i = 1
-    while not os.path.isfile(os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')):
+    while os.path.isfile(os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')):
         i += 1
     model_file = os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')
     with open(save_file, 'w+') as f:
         f.write(str(input_length) + '\n')
         f.write(str(model_file) + '\n')
-        for k, v in mapping.items():
-            f.write(','.join(str(num) for num in k) + ';' + str(v) + '\n')
-    mapping_length = len(list(mapping.keys())[0])
+        f.write(';#;'.join(mapping))
     # Create network
     model = keras.models.Sequential()
     model.add(keras.layers.LSTM(lstm_size, input_shape=input_data[0].shape, return_sequences=True))
     model.add(keras.layers.LSTM(lstm_size))
-    model.add(keras.layers.Dense(mapping_length, activation='softmax'))
+    model.add(keras.layers.Dense(len(mapping), activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     # Train the network
+    print('srtartasdfsf')
     model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
     _, accuracy = model.evaluate(input_data, output_data)
     print('Accuracy: %.2f%%' % (accuracy * 100))
     model.save(model_file)
+
 
 def generate_text(save_file, num_lines, max_limit, words=False):
     # Read save file
@@ -70,31 +70,28 @@ def generate_text(save_file, num_lines, max_limit, words=False):
         lines = [line.strip() for line in f]
         input_length = int(lines[0])
         model_file = lines[1]
-        mapping = {np.array(int(k) for k in line.split(';')[0].split(',')): line.split(';')[1] for line in lines[2:]}
+        mapping = list(lines[2].split(';#;'))
+    one_hot = np.identity(len(mapping))
     # Prepare model
     model = keras.models.load_model(model_file)
-    seq = [random.choice(mapping.keys()) for _ in range(input_length)]
-    end_line = None
-    for k, v in mapping.items():
-        if v == '\n':
-            end_line = k
-            break
-    shape = len(end_line) * input_length
+    seq = [one_hot[random.randint(0, len(mapping)-1)] for _ in range(input_length)]
+    shape = len(mapping) * input_length
     # Generate text
+    result = list()
     current_line = 1
     while current_line <= num_lines and len(seq) <= input_length + max_limit:
-        seq.append(model.predict(np.reshape(seq[-input_length:], shape)))
-        if seq[-1] == end_line:
+        rankings = model.predict(np.reshape(seq[-input_length:], shape))
+        index = rankings.index(max(rankings))
+        seq.append(one_hot[index])
+        result.append(mapping[index])
+        if result[-1] == '\n':
             current_line += 1
-    seq = seq[input_length:]
-    # Decode the outputs to readable text
-    text = [mapping[arr] for arr in seq]
-    result = (' ' if words else '').join(text)
-    print(result)
+    text = (' ' if words else '').join(result)
+    print(text)
     with open(os.path.join(os.getcwd(), 'most_recent_text.txt'), 'w+') as f:
-        f.write(result)
+        f.write(text)
 
 
 if __name__ == '__main__':
-    train_data('ShakespeareData/', 'Shakespeare1.txt', 100, 700, 100, 50, 0.1, ['\n', ',', '!', '.', '?', "'", ':', ';'])
+    train_data('ShakespeareData/', 'Shakespeare1.txt', 100, 700, 100, 50, 0.1, ['\n', ',', '!', '.', '?', "'", ':', ';', ' '])
     generate_text('Shakespeare1.txt', 14, 1000)
