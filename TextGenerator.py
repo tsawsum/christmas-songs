@@ -57,7 +57,6 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     model.add(keras.layers.Dense(len(mapping), activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     # Train the network
-    print('srtartasdfsf')
     model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
     _, accuracy = model.evaluate(input_data, output_data)
     print('Accuracy: %.2f%%' % (accuracy * 100))
