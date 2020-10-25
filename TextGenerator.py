@@ -74,12 +74,11 @@ def generate_text(save_file, num_lines, max_limit, words=False):
     # Prepare model
     model = keras.models.load_model(model_file)
     seq = [one_hot[random.randint(0, len(mapping)-1)] for _ in range(input_length)]
-    shape = len(mapping) * input_length
     # Generate text
     result = list()
     current_line = 1
     while current_line <= num_lines and len(seq) <= input_length + max_limit:
-        rankings = model.predict(np.reshape(seq[-input_length:], shape))
+        rankings = model.predict(np.array(seq[-input_length:]))
         index = rankings.index(max(rankings))
         seq.append(one_hot[index])
         result.append(mapping[index])
@@ -92,6 +91,6 @@ def generate_text(save_file, num_lines, max_limit, words=False):
 
 
 if __name__ == '__main__':
-    train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=5, batch_size=50, 
-               validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False)
-    generate_text('Christmas1.txt', 24, 10000)
+    # train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=5, batch_size=50,
+    #            validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False)
+    generate_text('Christmas1.txt', 24, 1000)
