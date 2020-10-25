@@ -92,5 +92,6 @@ def generate_text(save_file, num_lines, max_limit, words=False):
 
 
 if __name__ == '__main__':
-    train_data('ShakespeareData/', 'Shakespeare1.txt', 100, 700, 100, 50, 0.1, ['\n', ',', '!', '.', '?', "'", ':', ';', ' '])
-    generate_text('Shakespeare1.txt', 14, 1000)
+    train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=5, batch_size=50, 
+               validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False)
+    generate_text('Christmas1.txt', 24, 1000)
