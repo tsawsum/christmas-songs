@@ -10,7 +10,7 @@ def load_data(data_folder, words, valid_punctuation, input_length):
     valid_chars = [chr(k) for k in range(ord('a'), ord('z') + 1)] + valid_punctuation
     for filename in os.listdir(data_folder):
         with open(os.path.join(data_folder, filename), 'r') as f:
-            s = ''.join(line for line in f)
+            s = ''.join(line.strip() + '\n' for line in f)
             all_text.append(''.join(c for c in s.lower() if c in valid_chars).strip())
     # Split into characters/words
     data = list()
