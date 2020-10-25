@@ -46,7 +46,12 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     while not os.path.isfile(os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')):
         i += 1
     model_file = os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')
-    mapping_length = len(random.choice(mapping.keys()))
+    with open(save_file, 'w+') as f:
+        f.write(str(input_length) + '\n')
+        f.write(str(model_file) + '\n')
+        for k, v in mapping.items():
+            f.write(','.join(str(num) for num in k) + ';' + str(v) + '\n')
+    mapping_length = len(list(mapping.keys())[0])
     # Create network
     model = keras.models.Sequential()
     model.add(keras.layers.LSTM(lstm_size, input_shape=input_data[0].shape, return_sequences=True))
