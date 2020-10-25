@@ -63,3 +63,38 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     _, accuracy = model.evaluate(input_data, output_data)
     print('Accuracy: %.2f%%' % (accuracy * 100))
     model.save(model_file)
+
+def generate_text(save_file, num_lines, max_limit, words=False):
+    # Read save file
+    with open(save_file, 'r') as f:
+        lines = [line.strip() for line in f]
+        input_length = int(lines[0])
+        model_file = lines[1]
+        mapping = {np.array(int(k) for k in line.split(';')[0].split(',')): line.split(';')[1] for line in lines[2:]}
+    # Prepare model
+    model = keras.models.load_model(model_file)
+    seq = [random.choice(mapping.keys()) for _ in range(input_length)]
+    end_line = None
+    for k, v in mapping.items():
+        if v == '\n':
+            end_line = k
+            break
+    shape = len(end_line) * input_length
+    # Generate text
+    current_line = 1
+    while current_line <= num_lines and len(seq) <= input_length + max_limit:
+        seq.append(model.predict(np.reshape(seq[-input_length:], shape)))
+        if seq[-1] == end_line:
+            current_line += 1
+    seq = seq[input_length:]
+    # Decode the outputs to readable text
+    text = [mapping[arr] for arr in seq]
+    result = (' ' if words else '').join(text)
+    print(result)
+    with open(os.path.join(os.getcwd(), 'most_recent_text.txt'), 'w+') as f:
+        f.write(result)
+
+
+if __name__ == '__main__':
+    train_data('ShakespeareData/', 'Shakespeare1.txt', 100, 700, 100, 50, 0.1, ['\n', ',', '!', '.', '?', "'", ':', ';'])
+    generate_text('Shakespeare1.txt', 14, 1000)
