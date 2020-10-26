@@ -57,7 +57,10 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     model.add(keras.layers.Dense(len(mapping), activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     # Train the network
-    model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
+    cp_callback = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '.ckpt'), 
+                                                  save_weights_only=True, save_best_only=True, verbose=1)
+    model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size,
+              validation_split=validation_split, callbacks=[cp_callback])
     _, accuracy = model.evaluate(input_data, output_data)
     print('Accuracy: %.2f%%' % (accuracy * 100))
     model.save(model_file)
@@ -96,4 +99,4 @@ def generate_text(save_file, num_lines, max_limit, words=False):
 if __name__ == '__main__':
     # train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=5, batch_size=50,
     #            validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False)
-    generate_text('Christmas1.txt', 24, 1000)
+    generate_text('Christmas1.txt', 24, 50)
