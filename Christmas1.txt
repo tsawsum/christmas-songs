@@ -1,4 +1,0 @@
-100
-C:\Users\12077\OneDrive\Desktop\Python Projects\christmas-songs-main\model_1.h5
-
-;#; ;#;(;#;);#;,;#;-;#;a;#;b;#;c;#;d;#;e;#;f;#;g;#;h;#;i;#;j;#;k;#;l;#;m;#;n;#;o;#;p;#;q;#;r;#;s;#;t;#;u;#;v;#;w;#;x;#;y;#;z
