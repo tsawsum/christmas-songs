@@ -38,7 +38,7 @@ def load_data(data_folder, words, valid_punctuation, input_length):
 
 
 def train_data(data_folder, save_file, input_length, lstm_size, epochs,
-               batch_size, validation_split, valid_punctuation, words=False):
+               batch_size, validation_split, valid_punctuation, words=False, load_checkpoint=False):
     # Get data
     input_data, output_data, mapping = load_data(data_folder, words, valid_punctuation, input_length)
     # Create model file
@@ -46,10 +46,11 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     while os.path.isfile(os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')):
         i += 1
     model_file = os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')
-    with open(save_file, 'w+') as f:
-        f.write(str(input_length) + '\n')
-        f.write(str(model_file) + '\n')
-        f.write(';#;'.join(mapping))
+    if not load_checkpoint:
+        with open(save_file, 'w+') as f:
+            f.write(str(input_length) + '\n')
+            f.write(str(model_file) + '\n')
+            f.write(';#;'.join(mapping))
     # Create network
     model = keras.models.Sequential()
     model.add(keras.layers.LSTM(lstm_size, input_shape=input_data[0].shape, return_sequences=True))
@@ -57,10 +58,13 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     model.add(keras.layers.Dense(len(mapping), activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     # Train the network
-    cp_callback = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '.ckpt'), 
-                                                  save_weights_only=True, save_best_only=True, verbose=1)
-    model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size,
-              validation_split=validation_split, callbacks=[cp_callback])
+    if load_checkpoint:
+        model.load_weights('checkpoints/' + save_file.split('.')[0] + '.ckpt')
+    else:
+        cp_callback = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '.ckpt'),
+                                                      save_weights_only=True, save_best_only=True, verbose=1)
+        model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size,
+                  validation_split=validation_split, callbacks=[cp_callback])
     _, accuracy = model.evaluate(input_data, output_data)
     print('Accuracy: %.2f%%' % (accuracy * 100))
     model.save(model_file)
@@ -97,6 +101,6 @@ def generate_text(save_file, num_lines, max_limit, words=False):
 
 
 if __name__ == '__main__':
-    # train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=5, batch_size=50,
-    #            validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False)
-    generate_text('Christmas1.txt', 24, 50)
+    train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=2, batch_size=50,
+               validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False, load_checkpoint=True)
+    generate_text('Christmas1.txt', 24, 1500)
