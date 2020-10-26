@@ -69,21 +69,24 @@ def generate_text(save_file, num_lines, max_limit, words=False):
         lines = [line.strip() for line in f]
         input_length = int(lines[0])
         model_file = lines[1]
-        mapping = list(lines[2].split(';#;'))
+        mapping = list('\n'.join(lines[2:]).split(';#;'))
     one_hot = np.identity(len(mapping))
     # Prepare model
     model = keras.models.load_model(model_file)
-    seq = [one_hot[random.randint(0, len(mapping)-1)] for _ in range(input_length)]
+    seq = [one_hot[random.randint(0, len(mapping)-1)] for _ in range(input_length-1)]
+    seq += [one_hot[mapping.index('\n')]]
     # Generate text
     result = list()
     current_line = 1
     while current_line <= num_lines and len(seq) <= input_length + max_limit:
-        rankings = model.predict(np.array(seq[-input_length:]))
+        rankings = model.predict(np.array([seq[-input_length:]]))[0].tolist()
         index = rankings.index(max(rankings))
         seq.append(one_hot[index])
         result.append(mapping[index])
         if result[-1] == '\n':
+            print('Line', current_line, 'out of', num_lines, 'complete.')
             current_line += 1
+    print('\n--------------------------------------------\n')
     text = (' ' if words else '').join(result)
     print(text)
     with open(os.path.join(os.getcwd(), 'most_recent_text.txt'), 'w+') as f:
