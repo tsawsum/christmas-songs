@@ -38,7 +38,7 @@ def load_data(data_folder, words, valid_punctuation, input_length):
 
 
 def train_data(data_folder, save_file, input_length, lstm_size, epochs,
-               batch_size, validation_split, valid_punctuation, words=False, load_checkpoint=False):
+               batch_size, validation_split, valid_punctuation, words=False):
     # Get data
     input_data, output_data, mapping = load_data(data_folder, words, valid_punctuation, input_length)
     # Create model file
@@ -46,11 +46,9 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     while os.path.isfile(os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')):
         i += 1
     model_file = os.path.join(os.getcwd(), 'model_' + str(i) + '.h5')
-    if not load_checkpoint:
-        with open(save_file, 'w+') as f:
-            f.write(str(input_length) + '\n')
-            f.write(str(model_file) + '\n')
-            f.write(';#;'.join(mapping))
+    with open(save_file, 'w+') as f:
+        f.write(str(input_length) + '\n\n')
+        f.write(';#;'.join(mapping))
     # Create network
     model = keras.models.Sequential()
     model.add(keras.layers.LSTM(lstm_size, input_shape=input_data[0].shape, return_sequences=True))
@@ -58,49 +56,82 @@ def train_data(data_folder, save_file, input_length, lstm_size, epochs,
     model.add(keras.layers.Dense(len(mapping), activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     # Train the network
-    if load_checkpoint:
-        model.load_weights('checkpoints/' + save_file.split('.')[0] + '.ckpt')
-    else:
-        cp_callback = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '.ckpt'),
-                                                      save_weights_only=True, save_best_only=True, verbose=1)
-        model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size,
-                  validation_split=validation_split, callbacks=[cp_callback])
+    cp_best = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '_best.h5'),
+                                              save_weights_only=False, save_best_only=True, verbose=1)
+    cp_100 = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '_100.h5'),
+                                             save_weights_only=False, save_freq=100, verbose=1)
+    cp_10 = keras.callbacks.ModelCheckpoint(filepath=('checkpoints/' + save_file.split('.')[0] + '_10.h5'),
+                                            save_weights_only=False, save_freq=10, verbose=1)
+    model.fit(input_data, output_data, epochs=epochs, batch_size=batch_size,
+              validation_split=validation_split, callbacks=[cp_best, cp_100, cp_10])
     _, accuracy = model.evaluate(input_data, output_data)
     print('Accuracy: %.2f%%' % (accuracy * 100))
     model.save(model_file)
 
 
-def generate_text(save_file, num_lines, max_limit, words=False):
+def has_loop(arr, input_length):
+    for idx in range(len(arr)-input_length-1, -1, -1):
+        matches = True
+        for i in range(input_length):
+            if not np.array_equal(arr[idx+i], arr[-input_length+i]):
+                matches = False
+                break
+        if matches:
+            return True
+    return False
+
+
+def generate_text(save_file, model_file, num_lines, max_limit, words=False):
     # Read save file
     with open(save_file, 'r') as f:
         lines = [line.strip() for line in f]
         input_length = int(lines[0])
-        model_file = lines[1]
         mapping = list('\n'.join(lines[2:]).split(';#;'))
     one_hot = np.identity(len(mapping))
     # Prepare model
     model = keras.models.load_model(model_file)
-    seq = [one_hot[random.randint(0, len(mapping)-1)] for _ in range(input_length-1)]
-    seq += [one_hot[mapping.index('\n')]]
+    seq = [one_hot[random.randint(0, len(mapping)-1)] for _ in range(input_length-1)] + [one_hot[mapping.index('\n')]]
     # Generate text
     result = list()
     current_line = 1
-    while current_line <= num_lines and len(seq) <= input_length + max_limit:
+    line_length = 0
+    while current_line <= num_lines:
         rankings = model.predict(np.array([seq[-input_length:]]))[0].tolist()
         index = rankings.index(max(rankings))
         seq.append(one_hot[index])
         result.append(mapping[index])
+        line_length += 1
+        line_done = False
+        random_input = False
         if result[-1] == '\n':
+            line_done = True
+        elif line_length >= input_length * 2 and has_loop(seq[-line_length:], input_length):
+            result.append('... (infinite loop)\n')
+            line_done = True
+            random_input = True
+        elif line_length >= max_limit:
+            result.append('... (max line length)\n')
+            line_done = True
+            random_input = True
+        if line_done:
             print('Line', current_line, 'out of', num_lines, 'complete.')
-            current_line += 1
+            if line_length > 0:
+                current_line += 1
+            line_length = 0
+        if random_input:
+            seq += [one_hot[random.randint(0, len(mapping) - 1)] for _ in range(input_length - 1)] + [one_hot[mapping.index('\n')]]
     print('\n--------------------------------------------\n')
     text = (' ' if words else '').join(result)
     print(text)
-    with open(os.path.join(os.getcwd(), 'most_recent_text.txt'), 'w+') as f:
-        f.write(text)
+    if 'y' in input('Keep? (y/n) ').lower():
+        i = 1
+        while os.path.isfile(os.path.join(os.getcwd(), 'result_' + str(i) + '.txt')):
+            i += 1
+        with open(os.path.join(os.getcwd(), 'result_' + str(i) + '.txt'), 'w+') as f:
+            f.write(text)
 
 
 if __name__ == '__main__':
-    train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=2, batch_size=50,
-               validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False, load_checkpoint=True)
-    generate_text('Christmas1.txt', 24, 1500)
+    # train_data('Christmas Songs/', 'Christmas1.txt', input_length=100, lstm_size=700, epochs=101, batch_size=50,
+    #            validation_split=0.1, valid_punctuation=['\n', ' ', ',', '(', ')', '-'], words=False)
+    generate_text('Christmas1.txt', 'checkpoints/modelname.h5', 24, 250)
